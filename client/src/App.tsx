@@ -1,4 +1,5 @@
-import {useEffect, useState} from 'react'
+import { useEffect, useState } from 'react'
+import { Button, Input } from "@nextui-org/react";
 import './App.css'
 
 interface Job {
@@ -51,13 +52,13 @@ function App() {
             <div className="card">
                 <div style={{display: 'flex'}}>
                     {/* Search term filter */}
-                    <input type="text" placeholder="Search term" value={filters.searchTerm} onChange={(e) => setFilters({...filters, searchTerm: e.target.value})}/>
+                    <Input type="text" placeholder="Search term" value={filters.searchTerm} onChange={(e) => setFilters({...filters, searchTerm: e.target.value})}/>
 
                     {/* Remote filter */}
-                    <button onClick={() => setFilters({...filters, remote: {...filters.remote, enabled: !filters.remote.enabled}})}>Remote</button>
+                    <Button onClick={() => setFilters({...filters, remote: {...filters.remote, enabled: !filters.remote.enabled}})}>Remote</Button>
 
                     {/* Location filter */}
-                    <input type="text" placeholder="Where" value={filters.where} onChange={(e) => setWhere(e.target.value)} />
+                    <Input type="text" placeholder="Where" value={filters.where} onChange={(e) => setWhere(e.target.value)} />
                 </div>
                 <button onClick={() => initiateScraping(filters)}>
                     Scrape Indeed
