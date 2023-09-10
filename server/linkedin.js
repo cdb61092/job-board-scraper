@@ -2,7 +2,7 @@ import playwright from 'playwright';
 import {wss} from "./index.js";
 import WebSocket from 'ws';
 
-export const scrapeLinkedIn = async (wss) => {
+export const scrapeLinkedIn = async (wss, { filters }) => {
     console.log('scraping linkedin');
 
     const launchOptions = {
@@ -13,7 +13,10 @@ export const scrapeLinkedIn = async (wss) => {
     const page = await context.newPage()
     await page.goto("https://www.indeed.com")
     await page.waitForSelector('#text-input-what');
-    await page.fill('#text-input-what', 'Software Engineer');
+    await page.fill('#text-input-what', filters.searchTerm);
+    await page.fill('#text-input-where', filters.where);
+
+
     await page.press('#text-input-what', 'Enter');
 
     const jobs = [];
@@ -21,7 +24,6 @@ export const scrapeLinkedIn = async (wss) => {
     while (true) {
         // Wait for the job titles to load
         await page.waitForSelector('.jobTitle');
-        console.log('in loop');
 
         const jobTitles = await page.$$('.jobTitle');
 
@@ -31,7 +33,6 @@ export const scrapeLinkedIn = async (wss) => {
 
             // Get the job title text
             let title = await anchor.innerText();
-
 
             await page.waitForTimeout(getRandomTimeMilliseconds());
 
@@ -49,11 +50,7 @@ export const scrapeLinkedIn = async (wss) => {
 
             jobs.push({ title, description });
 
-            console.log(title);
-
             wss.clients.forEach((client) => {
-                console.log(client)
-                console.log(client.readyState)
                 if (client.readyState === WebSocket.OPEN) {
                     client.send(JSON.stringify({ title, description }));
                 }

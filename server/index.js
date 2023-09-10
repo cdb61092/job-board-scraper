@@ -8,7 +8,7 @@ import { scrapeLinkedIn } from './linkedin.js';
 
 const app = express();
 app.use(cors());
-
+app.use(express.json()); // Parse incoming JSON payloads
 const server = http.createServer(app);
 export const wss = new WebSocketServer({ server });
 
@@ -21,11 +21,12 @@ wss.on('connection', (ws) => {
 });
 
 app.get('/', (req, res) => {
+
     res.send('Hello World!');
 });
 
-app.post('/scrape', (req, res) => {
-    scrapeLinkedIn(wss);
+app.post('/scrape', ({ body: { filters } }, res) => {
+    scrapeLinkedIn(wss, filters);
     res.send('scraping initiated');
 });
 
