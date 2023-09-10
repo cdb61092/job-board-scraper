@@ -25,7 +25,8 @@ app.get('/', (req, res) => {
     res.send('Hello World!');
 });
 
-app.post('/scrape', ({ body: { filters } }, res) => {
+app.post('/scrape', (req, res) => {
+    const filters = req.body;
     scrapeLinkedIn(wss, filters);
     res.send('scraping initiated');
 });

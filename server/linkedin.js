@@ -2,9 +2,7 @@ import playwright from 'playwright';
 import {wss} from "./index.js";
 import WebSocket from 'ws';
 
-export const scrapeLinkedIn = async (wss, { filters }) => {
-    console.log('scraping linkedin');
-
+export const scrapeLinkedIn = async (wss, filters) => {
     const launchOptions = {
         headless: false,
     }
@@ -16,28 +14,34 @@ export const scrapeLinkedIn = async (wss, { filters }) => {
     await page.fill('#text-input-what', filters.searchTerm);
     await page.fill('#text-input-where', filters.where);
 
-
+    // Search jobs
     await page.press('#text-input-what', 'Enter');
 
-    const jobs = [];
+    if (filters.remote.enabled) {
+        console.log('waiting for remote selector...');
+        // Click on the remote filter
+        await page.waitForSelector(filters.remote.selector);
+        await page.click(filters.remote.selector);
+    }
 
     while (true) {
-        // Wait for the job titles to load
-        await page.waitForSelector('.jobTitle');
+        // Wait for job cards to load and then grab them
+        const jobCards =  await page.waitForSelector('.jobCard_mainContent').then(() => page.$$('.jobCard_mainContent'));
 
-        const jobTitles = await page.$$('.jobTitle');
+        console.log(`jobCards: ${jobCards}`)
 
-        for (const jobTitle of jobTitles) {
+        for (const jobCard of jobCards) {
             // Get the job title anchor so we can click on it to produce the description
-            const anchor = await jobTitle.$('a');
+            const jobTitleAnchorTag = await jobCard.$('a');
+
+            // Click on the job title to activate the card
+            await waitRandomBeforeClick(jobTitleAnchorTag);
 
             // Get the job title text
-            let title = await anchor.innerText();
+            let title = await jobTitleAnchorTag.$('span').then((element) => element.textContent());
+            console.log(`Getting title: ${title}`);
 
-            await page.waitForTimeout(getRandomTimeMilliseconds());
-
-            // Click on the job title
-            await waitRandomBeforeClick(anchor);
+            await page.waitForTimeout(getRandomTimeMilliseconds(2000, 5000));
 
             // Wait for the job description to load
             await page.waitForSelector('#jobDescriptionText');
@@ -47,11 +51,13 @@ export const scrapeLinkedIn = async (wss, { filters }) => {
 
             // Get the job description text
             const description = await descriptionElement.textContent();
+            console.log(`Getting description: ${description}`);
 
             jobs.push({ title, description });
 
             wss.clients.forEach((client) => {
                 if (client.readyState === WebSocket.OPEN) {
+                    // Send the job to the client
                     client.send(JSON.stringify({ title, description }));
                 }
             })
@@ -61,24 +67,23 @@ export const scrapeLinkedIn = async (wss, { filters }) => {
 
         if (nextButton) {
             await nextButton.click();
-
-            // Wassup Cloudflare?
-            await page.waitForTimeout(getRandomTimeMilliseconds());
+            // Dodge Cloudflare
+            await page.waitForTimeout(getRandomTimeMilliseconds(2000, 5000));
         } else {
             break;
         }
     }
-    console.log(jobs);
     await browser.close();
 
     // Please, Cloudflare, this is definitely not a bot
     async function waitRandomBeforeClick(selector) {
-        await page.waitForTimeout(getRandomTimeMilliseconds());
-        await selector.click();
+        setTimeout(async () => {
+            await selector.click();
+        }, getRandomTimeMilliseconds(2000, 3000))
     }
 
-    function getRandomTimeMilliseconds() {
-        return Math.floor(Math.random() * (5000 - 2000 + 1)) + 2000;
+    function getRandomTimeMilliseconds(min, max) {
+        return Math.floor(Math.random() * (max - min + 1)) + min;
     }
 }
 

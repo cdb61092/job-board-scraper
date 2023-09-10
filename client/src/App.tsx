@@ -23,9 +23,11 @@ function App() {
         where: 'Kansas City, MO',
         remote: {
             enabled: false,
-            selector: 'a.filter-remotejob',
+            selector: 'button#filter-remotejob',
         },
     });
+
+    useEffect(() => console.log(filters), [filters]);
 
     const setWhere = (where: string) => setFilters((filters) => ({ ...filters, where }))
 
@@ -55,7 +57,7 @@ function App() {
                     <Input type="text" placeholder="Search term" value={filters.searchTerm} onChange={(e) => setFilters({...filters, searchTerm: e.target.value})}/>
 
                     {/* Remote filter */}
-                    <Button onClick={() => setFilters({...filters, remote: {...filters.remote, enabled: !filters.remote.enabled}})}>Remote</Button>
+                    <Button onClick={() => setFilters({...filters, remote: {...filters.remote, enabled: !filters.remote.enabled}})} color={filters.remote.enabled ? 'success' : 'default'}>Remote</Button>
 
                     {/* Location filter */}
                     <Input type="text" placeholder="Where" value={filters.where} onChange={(e) => setWhere(e.target.value)} />
@@ -88,7 +90,7 @@ const initiateScraping = (filters: Filters) => {
             where: filters.where,
             remote: filters.remote
         })
-    })
+    }).then(() => console.info('Scraping started'));
 }
 
 export default App
