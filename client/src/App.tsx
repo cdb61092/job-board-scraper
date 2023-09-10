@@ -46,19 +46,17 @@ function App() {
         };
     }, []); // Empty dependency array to ensure this runs only once
 
-
-    useEffect(() => {
-        console.log(filters)
-    }, [filters]);
-
-
-
     return (
         <>
             <div className="card">
                 <div style={{display: 'flex'}}>
+                    {/* Search term filter */}
                     <input type="text" placeholder="Search term" value={filters.searchTerm} onChange={(e) => setFilters({...filters, searchTerm: e.target.value})}/>
+
+                    {/* Remote filter */}
                     <button onClick={() => setFilters({...filters, remote: {...filters.remote, enabled: !filters.remote.enabled}})}>Remote</button>
+
+                    {/* Location filter */}
                     <input type="text" placeholder="Where" value={filters.where} onChange={(e) => setWhere(e.target.value)} />
                 </div>
                 <button onClick={() => initiateScraping(filters)}>
