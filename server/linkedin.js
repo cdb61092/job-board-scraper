@@ -53,8 +53,6 @@ export const scrapeLinkedIn = async (wss, filters) => {
             const description = await descriptionElement.textContent();
             console.log(`Getting description: ${description}`);
 
-            jobs.push({ title, description });
-
             wss.clients.forEach((client) => {
                 if (client.readyState === WebSocket.OPEN) {
                     // Send the job to the client
