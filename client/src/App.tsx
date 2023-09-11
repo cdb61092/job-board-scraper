@@ -1,10 +1,23 @@
 import { useEffect, useState } from 'react'
-import { Button, Input } from "@nextui-org/react";
+import {
+    Button,
+    Input,
+    Table,
+    TableHeader,
+    TableBody,
+    TableColumn,
+    TableRow,
+    TableCell
+} from "@nextui-org/react";
+import {
+
+} from "@nextui-org/react";
 import './App.css'
 
 interface Job {
     title: string;
     description: string;
+    salary?: string;
 }
 
 interface Filters {
@@ -39,8 +52,8 @@ function App() {
         });
 
         ws.addEventListener('message', function(event) {
-            const { title, description } = JSON.parse(event.data);
-            setJobs((prevJobs) => [...prevJobs, { title, description }]);
+            const { title, description, salary } = JSON.parse(event.data);
+            setJobs((prevJobs) => [...prevJobs, { title, description, salary }]);
         });
 
         // Clean up the WebSocket connection when component unmounts
@@ -62,18 +75,28 @@ function App() {
                     {/* Location filter */}
                     <Input type="text" placeholder="Where" value={filters.where} onChange={(e) => setWhere(e.target.value)} />
                 </div>
-                <button onClick={() => initiateScraping(filters)}>
+                <Button onClick={() => initiateScraping(filters)}>
                     Scrape Indeed
-                </button>
+                </Button>
                 <h1>JOBS</h1>
-                {jobs.map((job, index) => {
-                    return (
-                        <div key={index}>
-                            <p>Title: {job.title}</p>
-                            <p>Description: {job.description}</p>
-                        </div>
-                    );
-                })}
+                <Table aria-label="Jobs table">
+                    <TableHeader>
+                        <TableColumn>Job Title</TableColumn>
+                        <TableColumn>Salary</TableColumn>
+                        <TableColumn>Description</TableColumn>
+                    </TableHeader>
+                    <TableBody>
+                        {jobs.map((job, index) => {
+                            return (
+                                <TableRow key={index}>
+                                    <TableCell>{job.title}</TableCell>
+                                    <TableCell>{job.salary ?? ''}</TableCell>
+                                    <TableCell>{job.description}</TableCell>
+                                </TableRow>
+                            );
+                        })}
+                    </TableBody>
+                </Table>
             </div>
         </>
     )

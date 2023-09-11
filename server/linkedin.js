@@ -1,45 +1,58 @@
 import playwright from 'playwright';
-import {wss} from "./index.js";
 import WebSocket from 'ws';
 
 export const scrapeLinkedIn = async (wss, filters) => {
     const launchOptions = {
         headless: false,
     }
-    const browser = await playwright['chromium'].launch(launchOptions)
-    const context = await browser.newContext()
-    const page = await context.newPage()
-    await page.goto("https://www.indeed.com")
-    await page.waitForSelector('#text-input-what');
+    const browser = await playwright['chromium'].launch(launchOptions);
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    await page.goto("https://www.indeed.com");
+
+    // Enter search term into the 'what' field
     await page.fill('#text-input-what', filters.searchTerm);
+
+    // Enter location into the 'where' field
     await page.fill('#text-input-where', filters.where);
 
-    // Search jobs
+    // Execute the search
     await page.press('#text-input-what', 'Enter');
 
     if (filters.remote.enabled) {
-        console.log('waiting for remote selector...');
         // Click on the remote filter
         await page.waitForSelector(filters.remote.selector);
         await page.click(filters.remote.selector);
     }
 
+    // Loop through all the pages of results
     while (true) {
         // Wait for job cards to load and then grab them
         const jobCards =  await page.waitForSelector('.jobCard_mainContent').then(() => page.$$('.jobCard_mainContent'));
 
-        console.log(`jobCards: ${jobCards}`)
-
         for (const jobCard of jobCards) {
-            // Get the job title anchor so we can click on it to produce the description
             const jobTitleAnchorTag = await jobCard.$('a');
-
-            // Click on the job title to activate the card
-            await waitRandomBeforeClick(jobTitleAnchorTag);
 
             // Get the job title text
             let title = await jobTitleAnchorTag.$('span').then((element) => element.textContent());
             console.log(`Getting title: ${title}`);
+
+            // Click on the job title to activate the card
+            await waitRandomBeforeClick(jobTitleAnchorTag);
+
+            const jobDetails = await page.waitForSelector('.jobsearch-RightPane');
+
+            // Attempt to find salary
+            const salary = await jobDetails.$$('#salaryInfoAndJobType>span').then(async (elements) => {
+                for (const element of elements) {
+                    const text = await element.textContent();
+                    if (text.startsWith('$')) {
+                        return text;
+                    }
+                }
+                return 'Not listed.'
+            })
+            console.log(`Getting salary: ${salary}`);
 
             await page.waitForTimeout(getRandomTimeMilliseconds(2000, 5000));
 
@@ -56,14 +69,16 @@ export const scrapeLinkedIn = async (wss, filters) => {
             wss.clients.forEach((client) => {
                 if (client.readyState === WebSocket.OPEN) {
                     // Send the job to the client
-                    client.send(JSON.stringify({ title, description }));
+                    client.send(JSON.stringify({ title, description, salary }));
                 }
             })
         }
 
+        //  Button to go to the next page
         const nextButton = await page.$('a[data-testid="pagination-page-next"]');
 
         if (nextButton) {
+            // We aren't at the end of the results, so click the next button
             await nextButton.click();
             // Dodge Cloudflare
             await page.waitForTimeout(getRandomTimeMilliseconds(2000, 5000));

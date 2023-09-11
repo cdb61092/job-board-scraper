@@ -1,9 +1,8 @@
 import express from 'express';
 import cors from 'cors';
-import playwright from 'playwright';
 import * as http from 'http';
 
-import WebSocket, { WebSocketServer } from 'ws';
+import { WebSocketServer } from 'ws';
 import { scrapeLinkedIn } from './linkedin.js';
 
 const app = express();
@@ -17,11 +16,9 @@ wss.on('connection', (ws) => {
     ws.on('message', (message) => {
         console.log(`received message ${message}`);
     });
-    // ws.send('Websocket initialized');
 });
 
 app.get('/', (req, res) => {
-
     res.send('Hello World!');
 });
 
