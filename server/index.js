@@ -11,10 +11,21 @@ app.use(express.json()); // Parse incoming JSON payloads
 const server = http.createServer(app);
 export const wss = new WebSocketServer({ server });
 
+const clients = [];
+
 wss.on('connection', (ws) => {
+    clients.push(ws);
     console.log('client connected!');
     ws.on('message', (message) => {
         console.log(`received message ${message}`);
+    });
+
+    ws.on('close', () => {
+        // Remove the client from the array when the connection is closed
+        const index = clients.indexOf(ws);
+        if (index > -1) {
+            clients.splice(index, 1);
+        }
     });
 });
 
@@ -24,8 +35,16 @@ app.get('/', (req, res) => {
 
 app.post('/scrape', (req, res) => {
     const filters = req.body;
-    scrapeLinkedIn(wss, filters);
-    res.send('scraping initiated');
+
+    // Retrieve a connected WebSocket client (e.g., the first one)
+    const ws = clients[0];
+
+    if (ws) {
+        scrapeLinkedIn(ws, filters);
+        res.send('scraping initiated');
+    } else {
+        res.status(400).send('No connected WebSocket clients');
+    }
 });
 
 const port = 8080;  // Make sure to define the port

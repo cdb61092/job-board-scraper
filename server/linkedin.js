@@ -1,7 +1,7 @@
 import playwright from 'playwright';
 import WebSocket from 'ws';
 
-export const scrapeLinkedIn = async (wss, filters) => {
+export const scrapeLinkedIn = async (ws, filters) => {
     const launchOptions = {
         headless: false,
     }
@@ -10,6 +10,7 @@ export const scrapeLinkedIn = async (wss, filters) => {
     const page = await context.newPage();
     await page.goto("https://www.indeed.com");
 
+    await page.waitForSelector('#text-input-what');
     // Enter search term into the 'what' field
     await page.fill('#text-input-what', filters.searchTerm);
 
@@ -25,8 +26,21 @@ export const scrapeLinkedIn = async (wss, filters) => {
         await page.click(filters.remote.selector);
     }
 
+    let continueScraping = true;
+
+    ws.on('message',  (message) => {
+        console.log(`message: ${message}`);
+        if (message === 'STOP') {
+            console.log('message is stop');
+            continueScraping = false;
+        }
+    })
+
     // Loop through all the pages of results
     while (true) {
+        if (!continueScraping) {
+            break;
+        }
         // Wait for job cards to load and then grab them
         const jobCards =  await page.waitForSelector('.jobCard_mainContent').then(() => page.$$('.jobCard_mainContent'));
 
@@ -36,6 +50,10 @@ export const scrapeLinkedIn = async (wss, filters) => {
             // Get the job title text
             let title = await jobTitleAnchorTag.$('span').then((element) => element.textContent());
             console.log(`Getting title: ${title}`);
+
+            const companyElement = await jobCard.$('.companyName');
+            const company = await companyElement.textContent();
+            console.log(`Getting company: ${company}`)
 
             // Click on the job title to activate the card
             await waitRandomBeforeClick(jobTitleAnchorTag);
@@ -51,7 +69,8 @@ export const scrapeLinkedIn = async (wss, filters) => {
                     }
                 }
                 return 'Not listed.'
-            })
+            });
+
             console.log(`Getting salary: ${salary}`);
 
             await page.waitForTimeout(getRandomTimeMilliseconds(2000, 5000));
@@ -66,12 +85,10 @@ export const scrapeLinkedIn = async (wss, filters) => {
             const description = await descriptionElement.textContent();
             console.log(`Getting description: ${description}`);
 
-            wss.clients.forEach((client) => {
-                if (client.readyState === WebSocket.OPEN) {
-                    // Send the job to the client
-                    client.send(JSON.stringify({ title, description, salary }));
-                }
-            })
+            // Send the job to the client
+            if (ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ title, description, salary, company }));
+            }
         }
 
         //  Button to go to the next page

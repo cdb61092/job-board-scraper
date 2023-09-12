@@ -7,7 +7,7 @@ import {
     TableBody,
     TableColumn,
     TableRow,
-    TableCell
+    TableCell,
 } from "@nextui-org/react";
 import {
 
@@ -18,6 +18,7 @@ interface Job {
     title: string;
     description: string;
     salary?: string;
+    company: string;
 }
 
 interface Filters {
@@ -30,6 +31,7 @@ interface Filters {
 }
 
 function App() {
+    const [ws, setWs] = useState<WebSocket | null>(null);  // Declare state to hold WebSocket object
     const [jobs, setJobs] = useState<Job[]>([]);
     const [filters, setFilters] = useState<Filters>({
         searchTerm: 'Software Engineer',
@@ -45,22 +47,28 @@ function App() {
     const setWhere = (where: string) => setFilters((filters) => ({ ...filters, where }))
 
     useEffect(() => {
-        const ws = new WebSocket('ws://localhost:8080');
+        const wsInstance = new WebSocket('ws://localhost:8080');
 
-        ws.addEventListener('open', function(event) {
-            console.log('WebSocket connection opened:', event, 'State:', ws.readyState);
+        // Wait for jobs to come in from the WebSocket connection
+        wsInstance.addEventListener('message', function(event) {
+            const { title, description, salary, company } = JSON.parse(event.data);
+            setJobs((prevJobs) => [...prevJobs, { title, description, salary, company }]);
         });
 
-        ws.addEventListener('message', function(event) {
-            const { title, description, salary } = JSON.parse(event.data);
-            setJobs((prevJobs) => [...prevJobs, { title, description, salary }]);
-        });
+        setWs(wsInstance);  // Set WebSocket object in state
 
         // Clean up the WebSocket connection when component unmounts
         return () => {
-            ws.close();
+            wsInstance.close();
         };
     }, []); // Empty dependency array to ensure this runs only once
+
+
+    const stopScraping = () => {
+        if (ws) {
+            ws.send('STOP');
+        }
+    };
 
     return (
         <>
@@ -78,10 +86,14 @@ function App() {
                 <Button onClick={() => initiateScraping(filters)}>
                     Scrape Indeed
                 </Button>
+                <Button onClick={() => stopScraping()}>
+                    Stop Scraping
+                </Button>
                 <h1>JOBS</h1>
                 <Table aria-label="Jobs table">
                     <TableHeader>
                         <TableColumn>Job Title</TableColumn>
+                        <TableColumn>Company</TableColumn>
                         <TableColumn>Salary</TableColumn>
                         <TableColumn>Description</TableColumn>
                     </TableHeader>
@@ -90,8 +102,9 @@ function App() {
                             return (
                                 <TableRow key={index}>
                                     <TableCell>{job.title}</TableCell>
-                                    <TableCell>{job.salary ?? ''}</TableCell>
-                                    <TableCell>{job.description}</TableCell>
+                                    <TableCell>{job.company}</TableCell>
+                                    <TableCell>{job.salary}</TableCell>
+                                    <TableCell>{`${job.description.slice(0, 300)}...`}</TableCell>
                                 </TableRow>
                             );
                         })}
