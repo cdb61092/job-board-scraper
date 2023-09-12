@@ -19,6 +19,7 @@ interface Job {
     description: string;
     salary?: string;
     company: string;
+    keywords: string[];
 }
 
 interface Filters {
@@ -51,8 +52,8 @@ function App() {
 
         // Wait for jobs to come in from the WebSocket connection
         wsInstance.addEventListener('message', function(event) {
-            const { title, description, salary, company } = JSON.parse(event.data);
-            setJobs((prevJobs) => [...prevJobs, { title, description, salary, company }]);
+            const { title, description, salary, company, foundKeywords: keywords } = JSON.parse(event.data);
+            setJobs((prevJobs) => [...prevJobs, { title, description, salary, company, keywords }]);
         });
 
         setWs(wsInstance);  // Set WebSocket object in state
@@ -94,6 +95,7 @@ function App() {
                     <TableHeader>
                         <TableColumn>Job Title</TableColumn>
                         <TableColumn>Company</TableColumn>
+                        <TableColumn>Keywords</TableColumn>
                         <TableColumn>Salary</TableColumn>
                         <TableColumn>Description</TableColumn>
                     </TableHeader>
@@ -103,6 +105,7 @@ function App() {
                                 <TableRow key={index}>
                                     <TableCell>{job.title}</TableCell>
                                     <TableCell>{job.company}</TableCell>
+                                    <TableCell>{job.keywords.join(', ')}</TableCell>
                                     <TableCell>{job.salary}</TableCell>
                                     <TableCell>{`${job.description.slice(0, 300)}...`}</TableCell>
                                 </TableRow>

@@ -1,5 +1,7 @@
 import playwright from 'playwright';
 import WebSocket from 'ws';
+import { keywords } from './keywords.js';
+
 
 export const scrapeLinkedIn = async (ws, filters) => {
     const launchOptions = {
@@ -10,7 +12,7 @@ export const scrapeLinkedIn = async (ws, filters) => {
     const page = await context.newPage();
     await page.goto("https://www.indeed.com");
 
-    await page.waitForSelector('#text-input-what');
+    await page.waitForTimeout(getRandomTimeMilliseconds(2000, 5000))
     // Enter search term into the 'what' field
     await page.fill('#text-input-what', filters.searchTerm);
 
@@ -85,9 +87,23 @@ export const scrapeLinkedIn = async (ws, filters) => {
             const description = await descriptionElement.textContent();
             console.log(`Getting description: ${description}`);
 
+            console.log('Search job description for keywords...');
+            const foundKeywords = [];
+
+            const lowerCaseDescription = description.toLowerCase();
+
+            for (const keyword of keywords) {
+                if (lowerCaseDescription.includes(keyword)) {
+                    foundKeywords.push(keyword);
+                }
+            }
+
+            console.log(`Found keywords: ${foundKeywords}`);
+
+
             // Send the job to the client
             if (ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({ title, description, salary, company }));
+                ws.send(JSON.stringify({ title, description, salary, company, foundKeywords }));
             }
         }
 
