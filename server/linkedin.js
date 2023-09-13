@@ -88,15 +88,9 @@ export const scrapeLinkedIn = async (ws, filters) => {
             console.log(`Getting description: ${description}`);
 
             console.log('Search job description for keywords...');
-            const foundKeywords = [];
-
-            const lowerCaseDescription = description.toLowerCase();
-
-            for (const keyword of keywords) {
-                if (lowerCaseDescription.includes(keyword)) {
-                    foundKeywords.push(keyword);
-                }
-            }
+            // Turn description lowercase, split words into an array, and then filter out
+            // any words that aren't in the keywords array
+            const foundKeywords =  Array.from(new Set(description.toLowerCase().split(' ').filter((word) => keywords.includes(word))));
 
             console.log(`Found keywords: ${foundKeywords}`);
 
