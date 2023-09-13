@@ -53,31 +53,18 @@ export const scrapeLinkedIn = async (ws, filters) => {
             let title = await jobTitleAnchorTag.$('span').then((element) => element.textContent());
             console.log(`Getting title: ${title}`);
 
-            const companyElement = await jobCard.$('.companyName');
-            const company = await companyElement.textContent();
-            console.log(`Getting company: ${company}`)
+            // Grab company name from the job card
+            const company = await getCompanyName(jobCard);
 
-            const locationElement = await jobCard.$('.companyLocation');
-            const location = await locationElement.textContent();
-            console.log(`Getting location: ${location}`)
+            // Grab company location from the job card
+            const location = await getCompanyLocation(jobCard);
 
             // Click on the job title to activate the card
             await waitRandomBeforeClick(jobTitleAnchorTag);
 
             const jobDetails = await page.waitForSelector('.jobsearch-RightPane');
 
-            // Attempt to find salary
-            const salary = await jobDetails.$$('#salaryInfoAndJobType>span').then(async (elements) => {
-                for (const element of elements) {
-                    const text = await element.textContent();
-                    if (text.startsWith('$')) {
-                        return text;
-                    }
-                }
-                return 'Not listed.'
-            });
-
-            console.log(`Getting salary: ${salary}`);
+            const salary = getSalaryFromDescription(jobDetails);
 
             await page.waitForTimeout(getRandomTimeMilliseconds(2000, 5000));
 
@@ -88,16 +75,9 @@ export const scrapeLinkedIn = async (ws, filters) => {
             const descriptionElement = await page.$('#jobDescriptionText');
 
             // Get the job description text
-            const description = await descriptionElement.textContent();
-            console.log(`Getting description: ${description}`);
+            const description = await getJobDescription();
 
-            console.log('Search job description for keywords...');
-            // Turn description lowercase, split words into an array, and then filter out
-            // any words that aren't in the keywords array
-            const foundKeywords =  Array.from(new Set(description.toLowerCase().split(' ').filter((word) => keywords.includes(word))));
-
-            console.log(`Found keywords: ${foundKeywords}`);
-
+            const foundKeywords =  getKeywords(description);
 
             // Send the job to the client
             if (ws.readyState === WebSocket.OPEN) {
@@ -118,17 +98,52 @@ export const scrapeLinkedIn = async (ws, filters) => {
         }
     }
     await browser.close();
+}
 
-    // Please, Cloudflare, this is definitely not a bot
-    async function waitRandomBeforeClick(selector) {
-        setTimeout(async () => {
-            await selector.click();
-        }, getRandomTimeMilliseconds(2000, 3000))
-    }
+async function getJobDescription(page) {
+    return await page.$('#jobDescriptionText').then((descriptionElement) => descriptionElement.textContent())
+        .then((description) => console.log(`Getting description: ${description}`));
+}
 
-    function getRandomTimeMilliseconds(min, max) {
-        return Math.floor(Math.random() * (max - min + 1)) + min;
-    }
+async function getSalaryFromDescription(description) {
+    // Attempt to find salary
+    return await description.$$('#salaryInfoAndJobType>span').then(async (elements) => {
+        for (const element of elements) {
+            const text = await element.textContent();
+            if (text.startsWith('$')) {
+                return text;
+            }
+        }
+        return 'Not listed.'
+    }).then((salary) => console.log(`Getting salary: ${salary}`));
+}
+
+function getKeywords(description) {
+    // Turn description lowercase, split words into an array, and then filter out
+    // any words that aren't in the keywords array
+    console.log('Searching job description for keywords...');
+    return Array.from(new Set(description.toLowerCase().split(' ').filter((word) => keywords.includes(word))));
+}
+
+async function getCompanyLocation(jobCard) {
+    return await jobCard.$('.companyLocation').then((locationElement) => locationElement.textContent())
+        .then((location) => console.log(`Getting location: ${location}`))
+}
+
+async function getCompanyName(jobCard){
+    return await jobCard.$('.companyName').then((companyElement) => companyElement.textContent())
+        .then((companyName) => console.log(`Getting company name: ${companyName}`))
+}
+
+// Please, Cloudflare, this is definitely not a bot
+async function waitRandomBeforeClick(selector) {
+    setTimeout(async () => {
+        await selector.click();
+    }, getRandomTimeMilliseconds(2000, 3000))
+}
+
+function getRandomTimeMilliseconds(min, max) {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
 
