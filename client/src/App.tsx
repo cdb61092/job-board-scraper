@@ -20,6 +20,7 @@ interface Job {
     salary?: string;
     company: string;
     keywords: string[];
+    location: string;
 }
 
 interface Filters {
@@ -52,8 +53,8 @@ function App() {
 
         // Wait for jobs to come in from the WebSocket connection
         wsInstance.addEventListener('message', function(event) {
-            const { title, description, salary, company, foundKeywords: keywords } = JSON.parse(event.data);
-            setJobs((prevJobs) => [...prevJobs, { title, description, salary, company, keywords }]);
+            const { title, description, salary, company, foundKeywords: keywords, location } = JSON.parse(event.data);
+            setJobs((prevJobs) => [...prevJobs, { title, description, salary, company, keywords, location }]);
         });
 
         setWs(wsInstance);  // Set WebSocket object in state
@@ -95,19 +96,21 @@ function App() {
                     <TableHeader>
                         <TableColumn>Job Title</TableColumn>
                         <TableColumn>Company</TableColumn>
+                        <TableColumn>Location</TableColumn>
                         <TableColumn>Keywords</TableColumn>
                         <TableColumn>Salary</TableColumn>
                         <TableColumn>Description</TableColumn>
                     </TableHeader>
                     <TableBody>
-                        {jobs.map((job, index) => {
+                        {jobs.map(({ title, description, salary, company, keywords, location }, index) => {
                             return (
                                 <TableRow key={index}>
-                                    <TableCell>{job.title}</TableCell>
-                                    <TableCell>{job.company}</TableCell>
-                                    <TableCell>{job.keywords.join(', ')}</TableCell>
-                                    <TableCell>{job.salary}</TableCell>
-                                    <TableCell>{`${job.description.slice(0, 300)}...`}</TableCell>
+                                    <TableCell>{title}</TableCell>
+                                    <TableCell>{company}</TableCell>
+                                    <TableCell>{location}</TableCell>
+                                    <TableCell>{keywords.join(', ')}</TableCell>
+                                    <TableCell>{salary}</TableCell>
+                                    <TableCell>{`${description.slice(0, 300)}...`}</TableCell>
                                 </TableRow>
                             );
                         })}

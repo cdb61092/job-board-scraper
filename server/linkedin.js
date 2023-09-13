@@ -57,6 +57,10 @@ export const scrapeLinkedIn = async (ws, filters) => {
             const company = await companyElement.textContent();
             console.log(`Getting company: ${company}`)
 
+            const locationElement = await jobCard.$('.companyLocation');
+            const location = await locationElement.textContent();
+            console.log(`Getting location: ${location}`)
+
             // Click on the job title to activate the card
             await waitRandomBeforeClick(jobTitleAnchorTag);
 
@@ -97,7 +101,7 @@ export const scrapeLinkedIn = async (ws, filters) => {
 
             // Send the job to the client
             if (ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({ title, description, salary, company, foundKeywords }));
+                ws.send(JSON.stringify({ title, description, salary, company, foundKeywords, location }));
             }
         }
 
