@@ -9,9 +9,6 @@ import {
     TableRow,
     TableCell,
 } from "@nextui-org/react";
-import {
-
-} from "@nextui-org/react";
 import './App.css'
 
 interface Job {
