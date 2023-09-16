@@ -2,10 +2,10 @@ import express from 'express';
 import cors from 'cors';
 import * as http from 'http';
 import { PrismaClient } from '@prisma/client'
-import { WebSocketServer } from 'ws';
-import { scrapeLinkedIn } from './linkedin.js';
+import { WebSocket, WebSocketServer } from 'ws';
+import { scrapeLinkedIn } from './indeed';
 
-const prisma = new PrismaClient();
+export const prisma = new PrismaClient();
 
 async function main() {
     const app = express();
@@ -14,7 +14,7 @@ async function main() {
     const server = http.createServer(app);
     const wss = new WebSocketServer({ server });
 
-    const clients = [];
+    const clients: WebSocket[] = [];
 
     wss.on('connection', (ws) => {
         clients.push(ws);
@@ -50,7 +50,7 @@ async function main() {
         }
     });
 
-    const port = 8080;  // Make sure to define the port
+    const port = 8070;  // Make sure to define the port
     server.listen(port, () => console.log(`Server listening on port ${port}`));  // Changed from app.listen to server.listen
 }
 

@@ -1,21 +1,21 @@
-import playwright from 'playwright';
+import { keywords } from './keywords';
+import { configureScraper } from "./playwright";
+import { prisma } from './index';
 import WebSocket from 'ws';
-import { keywords } from './keywords.js';
+import {ElementHandle, Page } from "playwright";
+import { Source } from '@prisma/client';
 
-
-export const scrapeLinkedIn = async (ws, filters) => {
-    const launchOptions = {
-        headless: false,
+interface Filters {
+    searchTerm: string;
+    where: string;
+    remote: {
+        enabled: boolean;
+        selector: string;
     }
-    const browser = await playwright['chromium'].launch(launchOptions);
-    const context = await browser.newContext();
-    const page = await context.newPage();
+}
 
-    // Look like a real person
-    await page.setExtraHTTPHeaders({
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36',
-        'Accept-Language': 'en-US,en;q=0.9'
-    });
+export const scrapeLinkedIn = async (ws: WebSocket, filters: Filters) => {
+   const [page, browser] = await configureScraper({ headless: false });
 
     await page.goto("https://www.indeed.com");
 
@@ -41,11 +41,7 @@ export const scrapeLinkedIn = async (ws, filters) => {
         const jobCards =  await page.waitForSelector('.jobCard_mainContent').then(() => page.$$('.jobCard_mainContent'));
 
         for (const jobCard of jobCards) {
-            const jobTitleAnchorTag = await jobCard.$('a');
-
-            // Get the job title text
-            let title = await jobTitleAnchorTag.$('span').then((element) => element.textContent());
-            // console.log(`Getting title: ${title}`);
+            const title = await getJobTitle(jobCard);
 
             // Grab company name from the job card
             const company = await getCompanyName(jobCard);
@@ -53,28 +49,33 @@ export const scrapeLinkedIn = async (ws, filters) => {
             // Grab company location from the job card
             const location = await getCompanyLocation(jobCard);
 
-            // Click on the job title to activate the card
-            await waitRandomBeforeClick(jobTitleAnchorTag);
-
+            // Grab the salary from the job description
             const salary = await getSalaryFromDescription(page);
 
             await page.waitForTimeout(getRandomTimeMilliseconds(2000, 5000));
 
-            // Wait for the job description to load
-            await page.waitForSelector('#jobDescriptionText');
-
             // Get the job description text
             const description = await getJobDescription(page);
 
-            // console.log(`description: ${description}`);
-
-            const foundKeywords= getKeywords(description);
+            const foundKeywords = getKeywords(description);
 
             // Send the job to the client
             if (ws.readyState === WebSocket.OPEN) {
                 const job = { title, description, salary, company, foundKeywords, location };
                 console.log(job);
                 ws.send(JSON.stringify(job));
+                prisma.job.create({
+                    data: {
+                        title: job.title,
+                        description: job.description,
+                        salary: job.salary,
+                        company: job.company,
+                        location: job.location,
+                        keywords: job.foundKeywords,
+                        source: Source.Indeed,
+                    }
+                })
+
             }
         }
 
@@ -93,18 +94,35 @@ export const scrapeLinkedIn = async (ws, filters) => {
     await browser.close();
 }
 
-// Gets the job description text from the right-side job pane that appears when clicking a job card
-async function getJobDescription(page) {
-    return await page.waitForSelector('#jobDescriptionText').then((descriptionElement) => descriptionElement.textContent());
+async function getJobTitle(element: ElementHandle)
+{
+    const jobTitleAnchorTag = await element.$('a');
+    let title = '';
+    // Get the job title text
+    if (jobTitleAnchorTag) {
+        const jobTitleSpanElement = await jobTitleAnchorTag.$('span');
+        if (jobTitleSpanElement) {
+            title = await jobTitleSpanElement.textContent() ?? 'Not found';
+        }
+        await jobTitleAnchorTag.click();
+    }
+
+    return title;
 }
 
-async function getSalaryFromDescription(page) {
+// Gets the job description text from the right-side job pane that appears when clicking a job card
+async function getJobDescription(page: Page) {
+    return await page.waitForSelector('#jobDescriptionText')
+        .then((descriptionElement) => descriptionElement.textContent())
+        .then((text) => text ?? 'Not found');}
+
+async function getSalaryFromDescription(page: Page) {
     const jobDetails = await page.waitForSelector('.jobsearch-RightPane');
     // Attempt to find salary
     return await jobDetails.$$('#salaryInfoAndJobType>span').then(async (elements) => {
         for (const element of elements) {
             const text = await element.textContent();
-            if (text.startsWith('$')) {
+            if (text?.startsWith('$')) {
                 return text;
             }
         }
@@ -112,28 +130,30 @@ async function getSalaryFromDescription(page) {
     });
 }
 
-function getKeywords(description) {
+function getKeywords(description: string) {
     // Turn description lowercase, split words into an array, and then filter out
     // any words that aren't in the keywords array
     return Array.from(new Set(description.toLowerCase().split(' ').filter((word) => keywords.includes(word))));
 }
 
-async function getCompanyLocation(jobCard) {
-    return await jobCard.$('.companyLocation').then((locationElement) => locationElement.textContent());
+async function getCompanyLocation(jobCard: ElementHandle) {
+    let companyLocation = '';
+    const companyLocationElement = await jobCard.$('.companyLocation');
+    if (companyLocationElement) {
+        return await companyLocationElement.textContent() ?? 'Not found'
+    }
+    return companyLocation;
 }
 
-async function getCompanyName(jobCard){
-    return await jobCard.$('.companyName').then((companyElement) => companyElement.textContent());
+async function getCompanyName(jobCard : ElementHandle){
+    const companyNameElement = await jobCard.$('.companyName');
+    if (companyNameElement) {
+        return await companyNameElement.textContent() ?? 'Not found';
+    }
+    return 'Not found';
 }
 
-// Please, Cloudflare, this is definitely not a bot
-async function waitRandomBeforeClick(selector) {
-    setTimeout(async () => {
-        await selector.click();
-    }, getRandomTimeMilliseconds(2000, 3000))
-}
-
-function getRandomTimeMilliseconds(min, max) {
+function getRandomTimeMilliseconds(min: number, max: number) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 

@@ -10,6 +10,11 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum Source {
+  LinkedIn
+  Indeed
+}
+
 model Job {
   id          Int      @id @default(autoincrement())
   title       String
@@ -18,4 +23,5 @@ model Job {
   keywords    String[]
   company     String
   location    String
+  source      Source
 }
