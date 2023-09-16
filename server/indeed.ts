@@ -1,9 +1,8 @@
 import { keywords } from './keywords';
 import { configureScraper } from "./playwright";
-import { prisma } from './index';
 import WebSocket from 'ws';
 import {ElementHandle, Page } from "playwright";
-import { Source } from '@prisma/client';
+import { Source, PrismaClient } from '@prisma/client';
 
 interface Filters {
     searchTerm: string;
@@ -13,6 +12,8 @@ interface Filters {
         selector: string;
     }
 }
+
+const prisma = new PrismaClient();
 
 export const scrapeLinkedIn = async (ws: WebSocket, filters: Filters) => {
    const [page, browser] = await configureScraper({ headless: false });
@@ -62,9 +63,8 @@ export const scrapeLinkedIn = async (ws: WebSocket, filters: Filters) => {
             // Send the job to the client
             if (ws.readyState === WebSocket.OPEN) {
                 const job = { title, description, salary, company, foundKeywords, location };
-                console.log(job);
                 ws.send(JSON.stringify(job));
-                prisma.job.create({
+                await prisma.job.create({
                     data: {
                         title: job.title,
                         description: job.description,
@@ -74,8 +74,7 @@ export const scrapeLinkedIn = async (ws: WebSocket, filters: Filters) => {
                         keywords: job.foundKeywords,
                         source: Source.Indeed,
                     }
-                })
-
+                }).catch((error) => console.log(error))
             }
         }
 
