@@ -10,6 +10,13 @@ export const scrapeLinkedIn = async (ws, filters) => {
     const browser = await playwright['chromium'].launch(launchOptions);
     const context = await browser.newContext();
     const page = await context.newPage();
+
+    // Look like a real person
+    await page.setExtraHTTPHeaders({
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36',
+        'Accept-Language': 'en-US,en;q=0.9'
+    });
+
     await page.goto("https://www.indeed.com");
 
     await page.waitForTimeout(getRandomTimeMilliseconds(2000, 5000))
@@ -28,21 +35,8 @@ export const scrapeLinkedIn = async (ws, filters) => {
         await page.click(filters.remote.selector);
     }
 
-    let continueScraping = true;
-
-    ws.on('message',  (message) => {
-        console.log(`message: ${message}`);
-        if (message === 'STOP') {
-            console.log('message is stop');
-            continueScraping = false;
-        }
-    })
-
     // Loop through all the pages of results
     while (true) {
-        if (!continueScraping) {
-            break;
-        }
         // Wait for job cards to load and then grab them
         const jobCards =  await page.waitForSelector('.jobCard_mainContent').then(() => page.$$('.jobCard_mainContent'));
 
@@ -51,7 +45,7 @@ export const scrapeLinkedIn = async (ws, filters) => {
 
             // Get the job title text
             let title = await jobTitleAnchorTag.$('span').then((element) => element.textContent());
-            console.log(`Getting title: ${title}`);
+            // console.log(`Getting title: ${title}`);
 
             // Grab company name from the job card
             const company = await getCompanyName(jobCard);
@@ -62,26 +56,25 @@ export const scrapeLinkedIn = async (ws, filters) => {
             // Click on the job title to activate the card
             await waitRandomBeforeClick(jobTitleAnchorTag);
 
-            const jobDetails = await page.waitForSelector('.jobsearch-RightPane');
-
-            const salary = getSalaryFromDescription(jobDetails);
+            const salary = await getSalaryFromDescription(page);
 
             await page.waitForTimeout(getRandomTimeMilliseconds(2000, 5000));
 
             // Wait for the job description to load
             await page.waitForSelector('#jobDescriptionText');
 
-            // Grab the job description element
-            const descriptionElement = await page.$('#jobDescriptionText');
-
             // Get the job description text
-            const description = await getJobDescription();
+            const description = await getJobDescription(page);
 
-            const foundKeywords =  getKeywords(description);
+            // console.log(`description: ${description}`);
+
+            const foundKeywords= getKeywords(description);
 
             // Send the job to the client
             if (ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({ title, description, salary, company, foundKeywords, location }));
+                const job = { title, description, salary, company, foundKeywords, location };
+                console.log(job);
+                ws.send(JSON.stringify(job));
             }
         }
 
@@ -100,14 +93,15 @@ export const scrapeLinkedIn = async (ws, filters) => {
     await browser.close();
 }
 
+// Gets the job description text from the right-side job pane that appears when clicking a job card
 async function getJobDescription(page) {
-    return await page.$('#jobDescriptionText').then((descriptionElement) => descriptionElement.textContent())
-        .then((description) => console.log(`Getting description: ${description}`));
+    return await page.waitForSelector('#jobDescriptionText').then((descriptionElement) => descriptionElement.textContent());
 }
 
-async function getSalaryFromDescription(description) {
+async function getSalaryFromDescription(page) {
+    const jobDetails = await page.waitForSelector('.jobsearch-RightPane');
     // Attempt to find salary
-    return await description.$$('#salaryInfoAndJobType>span').then(async (elements) => {
+    return await jobDetails.$$('#salaryInfoAndJobType>span').then(async (elements) => {
         for (const element of elements) {
             const text = await element.textContent();
             if (text.startsWith('$')) {
@@ -115,24 +109,21 @@ async function getSalaryFromDescription(description) {
             }
         }
         return 'Not listed.'
-    }).then((salary) => console.log(`Getting salary: ${salary}`));
+    });
 }
 
 function getKeywords(description) {
     // Turn description lowercase, split words into an array, and then filter out
     // any words that aren't in the keywords array
-    console.log('Searching job description for keywords...');
     return Array.from(new Set(description.toLowerCase().split(' ').filter((word) => keywords.includes(word))));
 }
 
 async function getCompanyLocation(jobCard) {
-    return await jobCard.$('.companyLocation').then((locationElement) => locationElement.textContent())
-        .then((location) => console.log(`Getting location: ${location}`))
+    return await jobCard.$('.companyLocation').then((locationElement) => locationElement.textContent());
 }
 
 async function getCompanyName(jobCard){
-    return await jobCard.$('.companyName').then((companyElement) => companyElement.textContent())
-        .then((companyName) => console.log(`Getting company name: ${companyName}`))
+    return await jobCard.$('.companyName').then((companyElement) => companyElement.textContent());
 }
 
 // Please, Cloudflare, this is definitely not a bot
