@@ -15,7 +15,7 @@ interface Filters {
 
 const prisma = new PrismaClient();
 
-export const scrapeLinkedIn = async (ws: WebSocket, filters: Filters) => {
+export const scrapeIndeed = async (filters: Filters) => {
    const [page, browser] = await configureScraper({ headless: false });
 
     await page.goto("https://www.indeed.com");
@@ -58,24 +58,23 @@ export const scrapeLinkedIn = async (ws: WebSocket, filters: Filters) => {
             // Get the job description text
             const description = await getJobDescription(page);
 
+            console.log(description);
+
             const foundKeywords = getKeywords(description);
 
-            // Send the job to the client
-            if (ws.readyState === WebSocket.OPEN) {
-                const job = { title, description, salary, company, foundKeywords, location };
-                ws.send(JSON.stringify(job));
-                await prisma.job.create({
-                    data: {
-                        title: job.title,
-                        description: job.description,
-                        salary: job.salary,
-                        company: job.company,
-                        location: job.location,
-                        keywords: job.foundKeywords,
-                        source: Source.Indeed,
-                    }
-                }).catch((error) => console.log(error))
-            }
+            const job = { title, description, salary, company, foundKeywords, location };
+
+            await prisma.job.create({
+                data: {
+                    title: job.title,
+                    description: job.description,
+                    salary: job.salary,
+                    company: job.company,
+                    location: job.location,
+                    keywords: job.foundKeywords,
+                    source: Source.Indeed,
+                }
+            }).catch((error) => console.error(error))
         }
 
         //  Button to go to the next page

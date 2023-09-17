@@ -3,7 +3,7 @@ import cors from 'cors';
 import * as http from 'http';
 import { PrismaClient } from '@prisma/client';
 import { WebSocket, WebSocketServer } from 'ws';
-import { scrapeLinkedIn } from './indeed';
+import { scrapeIndeed } from './indeed';
 
 export const prisma = new PrismaClient();
 
@@ -14,18 +14,6 @@ async function main() {
     const server = http.createServer(app);
     const wss = new WebSocketServer({ server });
 
-
-    await prisma.job.create({
-        data: {
-            title: 'test',
-            description: 'test',
-            salary: 'test',
-            company: 'test',
-            location: 'test',
-            keywords: [],
-            source: 'Indeed'
-        }
-    })
     const clients: WebSocket[] = [];
 
     wss.on('connection', (ws) => {
@@ -44,26 +32,21 @@ async function main() {
         });
     });
 
-    app.get('/', (req, res) => {
-        res.send('Hello World!');
-    });
-
     app.post('/scrape', (req, res) => {
+        console.log('in scrape');
         const filters = req.body;
-
-        // Retrieve a connected WebSocket client (e.g., the first one)
-        const ws = clients[0];
-
-        if (ws) {
-            scrapeLinkedIn(ws, filters);
-            res.send('scraping initiated');
-        } else {
-            res.status(400).send('No connected WebSocket clients');
-        }
+        scrapeIndeed(filters);
+        res.send('scraping initiated');
     });
 
-    const port = 8080;  // Make sure to define the port
-    server.listen(port, () => console.log(`Server listening on port ${port}`));  // Changed from app.listen to server.listen
+    app.get('/jobs', async (req, res) => {
+        console.log('fetching jobs');
+        const jobs = await prisma.job.findMany();
+        res.json(jobs);
+    });
+
+    const port = 8080;
+    server.listen(port, () => console.log(`Server listening on port ${port}`));
 }
 
 main()
