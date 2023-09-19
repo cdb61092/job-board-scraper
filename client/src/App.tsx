@@ -25,7 +25,8 @@ import { keywords } from "./keywords";
 function App() {
     // const [ws, setWs] = useState<WebSocket | null>(null);  // Declare state to hold WebSocket object
     const jobs = useJobs();
-    const [skillsFilter, setSkillsFilter] = useState("all");
+    const [skillsFilter, setSkillsFilter] = useState<string[]>(["all"]);
+
     const [skills, setSkills] = useState(['js', 'javascript', 'react', 'react.js', 'php', 'laravel', 'all']);
     const [filters, setFilters] = useState<Filters>({
         searchTerm: 'Software Engineer',
@@ -47,7 +48,20 @@ function App() {
     const filteredItems = useMemo(() => {
         let filteredJobs = [...jobs];
 
-        filteredJobs = filteredJobs.slice(0, 10);
+        if (skillsFilter.length === 1 && skillsFilter[0] === 'all') {
+            return filteredJobs;
+        } else {
+            filteredJobs = filteredJobs.filter((job) => {
+                return job.keywords.some((keyword) => {
+                    return skillsFilter.includes(keyword);
+                })
+                // // Convert job description to lowercase and split into an array of words
+                // const jobDescriptionWords = job.description.toLowerCase().split(/\s+/);
+                //
+                // // Check if any word in jobDescriptionWords is included in skillsFilter
+                // return jobDescriptionWords.some(word => skillsFilter.includes(word.toLowerCase()));
+            })
+        }
 
         return filteredJobs;
     }, [jobs, skillsFilter])
@@ -71,6 +85,10 @@ function App() {
         }
     }, []);
 
+    useEffect(() => {
+        console.log(skillsFilter);
+    }, [skills]);
+
     const setWhere = (where: string) => setFilters((filters) => ({...filters, where }))
 
     return (
@@ -80,31 +98,23 @@ function App() {
                     {/* Search term filter */}
                     <Input type="text" placeholder="Search term" value={filters.searchTerm} onChange={(e) => setFilters({...filters, searchTerm: e.target.value})}/>
 
-                    {/* Remote filter */}
-                    {/*<Button onClick={() => setFilters({...filters, remote: {...filters.remote, enabled: !filters.remote.enabled}})} color={filters.remote.enabled ? 'success' : 'default'}>Remote</Button>*/}
-
-                    {/* Skills filter */}
-                    <Dropdown>
-                        <DropdownTrigger className="hidden sm:flex">
-                            <Button endContent={<ChevronDownIcon className="text-small" />} variant="flat">
-                                Skills
-                            </Button>
-                        </DropdownTrigger>
-                        <DropdownMenu
-                            disallowEmptySelection
-                            aria-label="Table Columns"
-                            closeOnSelect={false}
-                            selectedKeys={skillsFilter}
-                            selectionMode="multiple"
-                            onSelectionChange={setSkillsFilter as any}
-                        >
-                            {skills.map((skill) => (
-                                <DropdownItem key={skill} className="capitalize">
+                    <div>
+                        {skills.map((skill) => {
+                            return (
+                                <Button
+                                    key={skill}
+                                    onClick={() =>
+                                        setSkillsFilter(skillsFilter.includes(skill)
+                                            ? skillsFilter.filter((s) => s !== skill)
+                                            : [...skillsFilter, skill])
+                                    }
+                                    color={skillsFilter.includes(skill) ? 'success' : 'default'}
+                                >
                                     {skill}
-                                </DropdownItem>
-                            ))}
-                        </DropdownMenu>
-                    </Dropdown>
+                                </Button>
+                            )
+                        })}
+                    </div>
 
                     {/* Location filter */}
                     <Input type="text" placeholder="Where" value={filters.where} onChange={(e) => setWhere(e.target.value)} />
@@ -209,3 +219,29 @@ export default App
 //         }
 //     }
 // });
+
+{/* Remote filter */}
+{/*<Button onClick={() => setFilters({...filters, remote: {...filters.remote, enabled: !filters.remote.enabled}})} color={filters.remote.enabled ? 'success' : 'default'}>Remote</Button>*/}
+
+{/* Skills filter */}
+{/*<Dropdown>*/}
+{/*    <DropdownTrigger className="hidden sm:flex">*/}
+{/*        <Button endContent={<ChevronDownIcon className="text-small" />} variant="flat">*/}
+{/*            Skills*/}
+{/*        </Button>*/}
+{/*    </DropdownTrigger>*/}
+{/*    <DropdownMenu*/}
+{/*        disallowEmptySelection*/}
+{/*        aria-label="Table Columns"*/}
+{/*        closeOnSelect={false} */}
+{/*        selectedKeys={skillsFilter}*/}
+{/*        selectionMode="multiple"*/}
+{/*        onSelectionChange={setSkillsFilter as any}*/}
+{/*    >*/}
+{/*        {skills.map((skill) => (*/}
+{/*            <DropdownItem key={skill} className="capitalize">*/}
+{/*                {skill}*/}
+{/*            </DropdownItem>*/}
+{/*        ))}*/}
+{/*    </DropdownMenu>*/}
+{/*</Dropdown>*/}
