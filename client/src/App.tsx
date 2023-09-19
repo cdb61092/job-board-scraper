@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import {useCallback, useEffect, useMemo, useState} from 'react'
 import {
     Button,
     Input,
@@ -9,27 +9,24 @@ import {
     TableRow,
     TableCell,
     Spinner,
-    getKeyValue
+    Dropdown,
+    DropdownTrigger,
+    DropdownMenu,
+    DropdownItem, SortDescriptor
 } from "@nextui-org/react";
-import {useAsyncList} from "@react-stately/data";
 import type { Filters, Job } from './types';
-import { useJobs } from './hooks/useJobs';
+import { ChevronDownIcon } from './ChevronDownIcon';
 import './App.css'
+import { excerpt } from "./utils";
+import { useJobs } from "./hooks/useJobs";
+import { keywords } from "./keywords";
 
-// interface SortOptions {
-//     items: Items;
-//     sortDescriptor: SortDescriptor;
-// }
-// type Items = Job[];
-// type SortDescriptor = {
-//     column: string;
-//     direction: 'ascending' | 'descending';
-// }
 
 function App() {
-    const [isLoading, setIsLoading] = useState(true);
     // const [ws, setWs] = useState<WebSocket | null>(null);  // Declare state to hold WebSocket object
-    // const jobs = useJobs();
+    const jobs = useJobs();
+    const [skillsFilter, setSkillsFilter] = useState("all");
+    const [skills, setSkills] = useState(['js', 'javascript', 'react', 'react.js', 'php', 'laravel', 'all']);
     const [filters, setFilters] = useState<Filters>({
         searchTerm: 'Software Engineer',
         where: 'Kansas City, MO',
@@ -38,60 +35,43 @@ function App() {
             selector: 'button#filter-remotejob',
         },
     });
+    const [sortDescriptor, setSortDescriptor] = useState<SortDescriptor>({
+        column: "age",
+        direction: "ascending",
+    });
 
-    let list = useAsyncList<Job, string>({
-        async load({signal}) {
-            let response = await fetch('http://localhost:8080/jobs', {signal});
-            let json = await response.json();
-            console.log('in list');
-            console.log(json);
-            setIsLoading(false);
-            return {items: json};
-        },
-        async sort({items, sortDescriptor}) {
-            return {
-                items: (items as Job[]).sort((a: Job, b: Job) => {
-                    let first = String(a[sortDescriptor.column as keyof Job]);
-                    let second = String(b[sortDescriptor.column as keyof Job]);
-                    let cmp = first.localeCompare(second);
+    useEffect(() => {
+        console.log(skillsFilter)
+    }, [skillsFilter])
 
-                    if (sortDescriptor.direction === "descending") {
-                        cmp *= -1;
-                    }
+    const filteredItems = useMemo(() => {
+        let filteredJobs = [...jobs];
 
-                    return cmp;
+        filteredJobs = filteredJobs.slice(0, 10);
 
-                }),
-            }
+        return filteredJobs;
+    }, [jobs, skillsFilter])
+
+    const renderCell = useCallback((job: Job, columnKey: keyof Job) => {
+        const cellValue = job[columnKey] ?? 'N/A';
+
+        // Render skills as a comma separated list
+        if (Array.isArray(cellValue)) {
+            return cellValue.join(', ');
         }
-    })
 
+        switch (columnKey) {
+            // Display only the first x characters of the description
+            case 'description':
+                return excerpt(cellValue);
+
+                // If no special cases match, just return the cell value
+            default:
+                return cellValue;
+        }
+    }, []);
 
     const setWhere = (where: string) => setFilters((filters) => ({...filters, where }))
-
-    // useEffect(() => {
-    //     const wsInstance = new WebSocket('ws://localhost:8080');
-    //
-    //     // Wait for jobs to come in from the WebSocket connection
-    //     wsInstance.addEventListener('message', function(event) {
-    //         const { title, description, salary, company, foundKeywords: keywords, location } = JSON.parse(event.data);
-    //         setJobs((prevJobs) => [...prevJobs, { title, description, salary, company, keywords, location }]);
-    //     });
-    //
-    //     setWs(wsInstance);  // Set WebSocket object in state
-    //
-    //     // Clean up the WebSocket connection when component unmounts
-    //     return () => {
-    //         wsInstance.close();
-    //     };
-    // }, []); // Empty dependency array to ensure this runs only once
-    //
-    //
-    // const stopScraping = () => {
-    //     if (ws) {
-    //         ws.send('STOP');
-    //     }
-    // };
 
     return (
         <>
@@ -101,7 +81,30 @@ function App() {
                     <Input type="text" placeholder="Search term" value={filters.searchTerm} onChange={(e) => setFilters({...filters, searchTerm: e.target.value})}/>
 
                     {/* Remote filter */}
-                    <Button onClick={() => setFilters({...filters, remote: {...filters.remote, enabled: !filters.remote.enabled}})} color={filters.remote.enabled ? 'success' : 'default'}>Remote</Button>
+                    {/*<Button onClick={() => setFilters({...filters, remote: {...filters.remote, enabled: !filters.remote.enabled}})} color={filters.remote.enabled ? 'success' : 'default'}>Remote</Button>*/}
+
+                    {/* Skills filter */}
+                    <Dropdown>
+                        <DropdownTrigger className="hidden sm:flex">
+                            <Button endContent={<ChevronDownIcon className="text-small" />} variant="flat">
+                                Skills
+                            </Button>
+                        </DropdownTrigger>
+                        <DropdownMenu
+                            disallowEmptySelection
+                            aria-label="Table Columns"
+                            closeOnSelect={false}
+                            selectedKeys={skillsFilter}
+                            selectionMode="multiple"
+                            onSelectionChange={setSkillsFilter as any}
+                        >
+                            {skills.map((skill) => (
+                                <DropdownItem key={skill} className="capitalize">
+                                    {skill}
+                                </DropdownItem>
+                            ))}
+                        </DropdownMenu>
+                    </Dropdown>
 
                     {/* Location filter */}
                     <Input type="text" placeholder="Where" value={filters.where} onChange={(e) => setWhere(e.target.value)} />
@@ -112,8 +115,8 @@ function App() {
                 <h1>JOBS</h1>
                 <Table
                     aria-label="Jobs table"
-                    sortDescriptor={list.sortDescriptor}
-                    onSortChange={list.sort}
+                    sortDescriptor={sortDescriptor}
+                    onSortChange={setSortDescriptor as any}
                 >
                     <TableHeader>
                         <TableColumn key='title'       allowsSorting>Job Title</TableColumn>
@@ -124,14 +127,13 @@ function App() {
                         <TableColumn key='description' allowsSorting>Description</TableColumn>
                     </TableHeader>
                     <TableBody
-                        items={list.items}
-                        isLoading={isLoading}
+                        items={filteredItems}
                         loadingContent={<Spinner label="Loading..." />}
                     >
                         {(item) => {
                             return (
                                 <TableRow >
-                                    {(columnKey) => <TableCell>{getKeyValue(item, columnKey)}</TableCell>}
+                                    {(columnKey) => <TableCell>{renderCell(item, columnKey as keyof Job)}</TableCell>}
                                 </TableRow>
                             )}
                         }
@@ -157,3 +159,53 @@ const initiateScraping = (filters: Filters) => {
 }
 
 export default App
+
+// useEffect(() => {
+//     const wsInstance = new WebSocket('ws://localhost:8080');
+//
+//     // Wait for jobs to come in from the WebSocket connection
+//     wsInstance.addEventListener('message', function(event) {
+//         const { title, description, salary, company, foundKeywords: keywords, location } = JSON.parse(event.data);
+//         setJobs((prevJobs) => [...prevJobs, { title, description, salary, company, keywords, location }]);
+//     });
+//
+//     setWs(wsInstance);  // Set WebSocket object in state
+//
+//     // Clean up the WebSocket connection when component unmounts
+//     return () => {
+//         wsInstance.close();
+//     };
+// }, []); // Empty dependency array to ensure this runs only once
+//
+//
+// const stopScraping = () => {
+//     if (ws) {
+//         ws.send('STOP');
+//     }
+// };
+
+// let list = useAsyncList<Job, string>({
+//     // Fetch initial data
+//     async load({signal}) {
+//         let response = await fetch('http://localhost:8080/jobs', {signal});
+//         let json = await response.json();
+//         setIsLoading(false);
+//         return {items: json};
+//     },
+//     // How to sort the rows
+//     async sort({items, sortDescriptor}) {
+//         return {
+//             items: (items as Job[]).sort((a: Job, b: Job) => {
+//                 let first = String(a[sortDescriptor.column as keyof Job]);
+//                 let second = String(b[sortDescriptor.column as keyof Job]);
+//                 let cmp = first.localeCompare(second);
+//
+//                 // If the sort direction is descending, reverse the comparison
+//                 if (sortDescriptor.direction === "descending") {
+//                     cmp *= -1;
+//                 }
+//                 return cmp;
+//             }),
+//         }
+//     }
+// });
