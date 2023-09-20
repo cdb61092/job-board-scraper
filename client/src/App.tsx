@@ -1,4 +1,4 @@
-import {useCallback, useEffect, useMemo, useState} from 'react'
+import React, {useCallback, useEffect, useMemo, useState} from 'react'
 import {
     Button,
     Input,
@@ -9,25 +9,26 @@ import {
     TableRow,
     TableCell,
     Spinner,
-    Dropdown,
-    DropdownTrigger,
-    DropdownMenu,
-    DropdownItem, SortDescriptor
+    SortDescriptor,
+    Pagination, Dropdown, DropdownTrigger, DropdownMenu
 } from "@nextui-org/react";
 import type { Filters, Job } from './types';
-import { ChevronDownIcon } from './ChevronDownIcon';
+import { SearchIcon } from "./SearchIcon";
 import './App.css'
 import { excerpt } from "./utils";
 import { useJobs } from "./hooks/useJobs";
-import { keywords } from "./keywords";
+import {ChevronDownIcon} from "./ChevronDownIcon.tsx";
 
+const skills =  ['js', 'javascript', 'react', 'react.js', 'php', 'laravel'];
 
 function App() {
     // const [ws, setWs] = useState<WebSocket | null>(null);  // Declare state to hold WebSocket object
     const jobs = useJobs();
     const [skillsFilter, setSkillsFilter] = useState<string[]>(["all"]);
+    const [rowsPerPage, setRowsPerPage] = useState(10);
+    const [page, setPage] = useState(1);
 
-    const [skills, setSkills] = useState(['js', 'javascript', 'react', 'react.js', 'php', 'laravel', 'all']);
+    // const [skills, setSkills] = useState(['js', 'javascript', 'react', 'react.js', 'php', 'laravel']);
     const [filters, setFilters] = useState<Filters>({
         searchTerm: 'Software Engineer',
         where: 'Kansas City, MO',
@@ -41,30 +42,38 @@ function App() {
         direction: "ascending",
     });
 
-    useEffect(() => {
-        console.log(skillsFilter)
-    }, [skillsFilter])
-
     const filteredItems = useMemo(() => {
         let filteredJobs = [...jobs];
 
-        if (skillsFilter.length === 1 && skillsFilter[0] === 'all') {
+        if (skillsFilter.includes('all')) {
             return filteredJobs;
         } else {
             filteredJobs = filteredJobs.filter((job) => {
                 return job.keywords.some((keyword) => {
                     return skillsFilter.includes(keyword);
                 })
-                // // Convert job description to lowercase and split into an array of words
-                // const jobDescriptionWords = job.description.toLowerCase().split(/\s+/);
-                //
-                // // Check if any word in jobDescriptionWords is included in skillsFilter
-                // return jobDescriptionWords.some(word => skillsFilter.includes(word.toLowerCase()));
             })
         }
 
         return filteredJobs;
-    }, [jobs, skillsFilter])
+    }, [jobs, skillsFilter]);
+
+    const items = useMemo(() => {
+        const start = (page - 1) * rowsPerPage;
+        const end = start + rowsPerPage;
+
+        return filteredItems.slice(start, end);
+    }, [page, filteredItems, rowsPerPage]);
+
+    const sortedItems = useMemo(() => {
+        return [...items].sort((a, b) => {
+            const first = a[sortDescriptor.column as keyof Job] ?? '';
+            const second = b[sortDescriptor.column as keyof Job] ?? '';
+            const cmp = first < second ? -1 : first > second ? 1 : 0;
+
+            return sortDescriptor.direction === "descending" ? -cmp : cmp;
+        })
+    }, [items, sortDescriptor]);
 
     const renderCell = useCallback((job: Job, columnKey: keyof Job) => {
         const cellValue = job[columnKey] ?? 'N/A';
@@ -85,39 +94,78 @@ function App() {
         }
     }, []);
 
-    useEffect(() => {
-        console.log(skillsFilter);
-    }, [skills]);
+    const pages = Math.ceil(filteredItems.length / rowsPerPage);
 
     const setWhere = (where: string) => setFilters((filters) => ({...filters, where }))
 
+    const onNextPage = useCallback(() => {
+        if (page < pages) {
+            setPage(page + 1);
+        }
+    }, [page, pages]);
+
+    const onPreviousPage = useCallback(() => {
+        if (page > 1) {
+            setPage(page - 1);
+        }
+    }, [page]);
+
+    const onRowsPerPageChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
+        setRowsPerPage(Number(e.target.value));
+        setPage(1);
+    }, []);
+
+    const topContent = useMemo(() => {
+        return (
+            <div className="flex flex-col gap-4">
+                <div className="flex justify-between items-center">
+                    <span className="text-default-400 text-small">Total {jobs.length} jobs</span>
+                    <label className="flex items-center text-default-400 text-small">
+                        Rows per page:
+                        <select
+                            className="bg-transparent outline-none text-default-400 text-small"
+                            onChange={onRowsPerPageChange}
+                        >
+                            <option value="5">5</option>
+                            <option value="10" selected>10</option>
+                            <option value="15">15</option>
+                        </select>
+                    </label>
+                </div>
+            </div>
+        );
+    }, [
+        onRowsPerPageChange,
+        jobs.length,
+    ]);
+
     return (
         <>
-            <div className="card">
+            <div>
                 <div style={{display: 'flex'}}>
                     {/* Search term filter */}
                     <Input type="text" placeholder="Search term" value={filters.searchTerm} onChange={(e) => setFilters({...filters, searchTerm: e.target.value})}/>
 
-                    <div>
-                        {skills.map((skill) => {
-                            return (
-                                <Button
-                                    key={skill}
-                                    onClick={() =>
-                                        setSkillsFilter(skillsFilter.includes(skill)
-                                            ? skillsFilter.filter((s) => s !== skill)
-                                            : [...skillsFilter, skill])
-                                    }
-                                    color={skillsFilter.includes(skill) ? 'success' : 'default'}
-                                >
-                                    {skill}
-                                </Button>
-                            )
-                        })}
-                    </div>
-
                     {/* Location filter */}
                     <Input type="text" placeholder="Where" value={filters.where} onChange={(e) => setWhere(e.target.value)} />
+                </div>
+                <div className={'flex'}>
+                    <h3>Skills</h3>
+                    {skills.map((skill) => {
+                        return (
+                            <Button
+                                key={skill}
+                                onClick={() =>
+                                    setSkillsFilter(skillsFilter.includes(skill)
+                                        ? skillsFilter.filter((s: string) => s !== skill)
+                                        : [...skillsFilter, skill])
+                                }
+                                color={skillsFilter.includes(skill) ? 'success' : 'default'}
+                            >
+                                {skill}
+                            </Button>
+                        )
+                    })}
                 </div>
                 <Button onClick={() => initiateScraping(filters)}>
                     Scrape Indeed
@@ -127,6 +175,7 @@ function App() {
                     aria-label="Jobs table"
                     sortDescriptor={sortDescriptor}
                     onSortChange={setSortDescriptor as any}
+                    topContent={topContent}
                 >
                     <TableHeader>
                         <TableColumn key='title'       allowsSorting>Job Title</TableColumn>
@@ -137,7 +186,7 @@ function App() {
                         <TableColumn key='description' allowsSorting>Description</TableColumn>
                     </TableHeader>
                     <TableBody
-                        items={filteredItems}
+                        items={sortedItems}
                         loadingContent={<Spinner label="Loading..." />}
                     >
                         {(item) => {
@@ -149,6 +198,23 @@ function App() {
                         }
                     </TableBody>
                 </Table>
+                <Pagination
+                    isCompact
+                    showControls
+                    showShadow
+                    color="primary"
+                    page={page}
+                    total={pages}
+                    onChange={setPage}
+                />
+                <div className="hidden sm:flex w-[30%] justify-end gap-2">
+                    <Button isDisabled={pages === 1} size="sm" variant="flat" onPress={onPreviousPage}>
+                        Previous
+                    </Button>
+                    <Button isDisabled={pages === 1} size="sm" variant="flat" onPress={onNextPage}>
+                        Next
+                    </Button>
+                </div>
             </div>
         </>
     )
