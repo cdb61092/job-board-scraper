@@ -10,16 +10,12 @@ import {
     TableCell,
     Spinner,
     SortDescriptor,
-    Pagination, Dropdown, DropdownTrigger, DropdownMenu
+    Pagination,
 } from "@nextui-org/react";
-import type { Filters, Job } from './types';
-import { SearchIcon } from "./SearchIcon";
+import type {Filters, Job} from './types';
 import './App.css'
-import { excerpt } from "./utils";
-import { useJobs } from "./hooks/useJobs";
-import {ChevronDownIcon} from "./ChevronDownIcon.tsx";
-
-const skills =  ['js', 'javascript', 'react', 'react.js', 'php', 'laravel'];
+import {excerpt} from "./utils";
+import {useJobs} from "./hooks/useJobs";
 
 function App() {
     // const [ws, setWs] = useState<WebSocket | null>(null);  // Declare state to hold WebSocket object
@@ -27,6 +23,7 @@ function App() {
     const [skillsFilter, setSkillsFilter] = useState<string[]>(["all"]);
     const [rowsPerPage, setRowsPerPage] = useState(10);
     const [page, setPage] = useState(1);
+    const [listedSkills, setListedSkills] = useState<string[]>([]);
 
     // const [skills, setSkills] = useState(['js', 'javascript', 'react', 'react.js', 'php', 'laravel']);
     const [filters, setFilters] = useState<Filters>({
@@ -42,10 +39,14 @@ function App() {
         direction: "ascending",
     });
 
+    useEffect(() => {
+        setListedSkills(Array.from(new Set(jobs.flatMap((job) => job.keywords))).sort());
+    }, [jobs])
+
     const filteredItems = useMemo(() => {
         let filteredJobs = [...jobs];
 
-        if (skillsFilter.includes('all')) {
+        if (skillsFilter.length === 1 && skillsFilter.includes('all')) {
             return filteredJobs;
         } else {
             filteredJobs = filteredJobs.filter((job) => {
@@ -88,7 +89,7 @@ function App() {
             case 'description':
                 return excerpt(cellValue);
 
-                // If no special cases match, just return the cell value
+            // If no special cases match, just return the cell value
             default:
                 return cellValue;
         }
@@ -96,7 +97,7 @@ function App() {
 
     const pages = Math.ceil(filteredItems.length / rowsPerPage);
 
-    const setWhere = (where: string) => setFilters((filters) => ({...filters, where }))
+    const setWhere = (where: string) => setFilters((filters) => ({...filters, where}))
 
     const onNextPage = useCallback(() => {
         if (page < pages) {
@@ -125,9 +126,10 @@ function App() {
                         <select
                             className="bg-transparent outline-none text-default-400 text-small"
                             onChange={onRowsPerPageChange}
+                            defaultValue={10}
                         >
                             <option value="5">5</option>
-                            <option value="10" selected>10</option>
+                            <option value="10" >10</option>
                             <option value="15">15</option>
                         </select>
                     </label>
@@ -139,65 +141,10 @@ function App() {
         jobs.length,
     ]);
 
-    return (
-        <>
-            <div>
-                <div style={{display: 'flex'}}>
-                    {/* Search term filter */}
-                    <Input type="text" placeholder="Search term" value={filters.searchTerm} onChange={(e) => setFilters({...filters, searchTerm: e.target.value})}/>
-
-                    {/* Location filter */}
-                    <Input type="text" placeholder="Where" value={filters.where} onChange={(e) => setWhere(e.target.value)} />
-                </div>
-                <div className={'flex'}>
-                    <h3>Skills</h3>
-                    {skills.map((skill) => {
-                        return (
-                            <Button
-                                key={skill}
-                                onClick={() =>
-                                    setSkillsFilter(skillsFilter.includes(skill)
-                                        ? skillsFilter.filter((s: string) => s !== skill)
-                                        : [...skillsFilter, skill])
-                                }
-                                color={skillsFilter.includes(skill) ? 'success' : 'default'}
-                            >
-                                {skill}
-                            </Button>
-                        )
-                    })}
-                </div>
-                <Button onClick={() => initiateScraping(filters)}>
-                    Scrape Indeed
-                </Button>
-                <h1>JOBS</h1>
-                <Table
-                    aria-label="Jobs table"
-                    sortDescriptor={sortDescriptor}
-                    onSortChange={setSortDescriptor as any}
-                    topContent={topContent}
-                >
-                    <TableHeader>
-                        <TableColumn key='title'       allowsSorting>Job Title</TableColumn>
-                        <TableColumn key='company'     allowsSorting>Company</TableColumn>
-                        <TableColumn key='location'    allowsSorting>Location</TableColumn>
-                        <TableColumn key='keywords'    allowsSorting>Keywords</TableColumn>
-                        <TableColumn key='salary'      allowsSorting>Salary</TableColumn>
-                        <TableColumn key='description' allowsSorting>Description</TableColumn>
-                    </TableHeader>
-                    <TableBody
-                        items={sortedItems}
-                        loadingContent={<Spinner label="Loading..." />}
-                    >
-                        {(item) => {
-                            return (
-                                <TableRow >
-                                    {(columnKey) => <TableCell>{renderCell(item, columnKey as keyof Job)}</TableCell>}
-                                </TableRow>
-                            )}
-                        }
-                    </TableBody>
-                </Table>
+    const bottomContent = useMemo(() => {
+        return (
+            <div className="flex justify-center gap-4">
+                <div className="flex justify-center gap-4">
                 <Pagination
                     isCompact
                     showControls
@@ -206,6 +153,7 @@ function App() {
                     page={page}
                     total={pages}
                     onChange={setPage}
+                    className={'w-[70%]'}
                 />
                 <div className="hidden sm:flex w-[30%] justify-end gap-2">
                     <Button isDisabled={pages === 1} size="sm" variant="flat" onPress={onPreviousPage}>
@@ -215,6 +163,78 @@ function App() {
                         Next
                     </Button>
                 </div>
+                </div>
+            </div>
+        )
+    }, [page, pages, onNextPage, onPreviousPage]);
+
+    return (
+        <>
+            <div>
+                <div className='flex'>
+                    {/* Search term filter */}
+                    <Input label='Job Title' type="text" placeholder="Search term" value={filters.searchTerm}
+                           onChange={(e) => setFilters({...filters, searchTerm: e.target.value})}/>
+
+                    {/* Location filter */}
+                    <Input label='Location' type="text" placeholder="Where" value={filters.where}
+                           onChange={(e) => setWhere(e.target.value)}/>
+                </div>
+                <div>
+                    <h3 className='text-left text-2xl my-3'>Skills</h3>
+                    <div className='flex flex-wrap gap-2 bg-black p-3 rounded-2xl'>
+                        {listedSkills.map((skill) => {
+                            return (
+                                <Button
+                                    key={skill}
+                                    onClick={() =>
+                                        setSkillsFilter(skillsFilter.includes(skill)
+                                            ? skillsFilter.filter((s: string) => s !== skill)
+                                            : [...skillsFilter, skill])
+                                    }
+                                    color={skillsFilter.includes(skill) ? 'success' : 'default'}
+                                >
+                                    {skill}
+                                </Button>
+                            )
+                        })}
+                    </div>
+
+                </div>
+                <Button onClick={() => initiateScraping(filters)}>
+                    Scrape Indeed
+                </Button>
+                <Table
+                    aria-label="Jobs table"
+                    sortDescriptor={sortDescriptor}
+                    onSortChange={setSortDescriptor as any}
+                    topContent={topContent}
+                    bottomContent={bottomContent}
+                    className='h-[80vh]'
+                >
+                    <TableHeader>
+                        <TableColumn key='title' allowsSorting>Job Title</TableColumn>
+                        <TableColumn key='company' allowsSorting>Company</TableColumn>
+                        <TableColumn key='location' allowsSorting>Location</TableColumn>
+                        <TableColumn key='keywords' allowsSorting>Keywords</TableColumn>
+                        <TableColumn key='salary' allowsSorting>Salary</TableColumn>
+                        <TableColumn key='description' allowsSorting>Description</TableColumn>
+                    </TableHeader>
+                    <TableBody
+                        items={sortedItems}
+                        loadingContent={<Spinner label="Loading..."/>}
+                    >
+                        {(item) => {
+                            return (
+                                <TableRow>
+                                    {(columnKey) => <TableCell>{renderCell(item, columnKey as keyof Job)}</TableCell>}
+                                </TableRow>
+                            )
+                        }
+                        }
+                    </TableBody>
+                </Table>
+
             </div>
         </>
     )
@@ -286,28 +306,52 @@ export default App
 //     }
 // });
 
-{/* Remote filter */}
-{/*<Button onClick={() => setFilters({...filters, remote: {...filters.remote, enabled: !filters.remote.enabled}})} color={filters.remote.enabled ? 'success' : 'default'}>Remote</Button>*/}
+{/* Remote filter */
+}
+{/*<Button onClick={() => setFilters({...filters, remote: {...filters.remote, enabled: !filters.remote.enabled}})} color={filters.remote.enabled ? 'success' : 'default'}>Remote</Button>*/
+}
 
-{/* Skills filter */}
-{/*<Dropdown>*/}
-{/*    <DropdownTrigger className="hidden sm:flex">*/}
-{/*        <Button endContent={<ChevronDownIcon className="text-small" />} variant="flat">*/}
-{/*            Skills*/}
-{/*        </Button>*/}
-{/*    </DropdownTrigger>*/}
-{/*    <DropdownMenu*/}
-{/*        disallowEmptySelection*/}
-{/*        aria-label="Table Columns"*/}
-{/*        closeOnSelect={false} */}
-{/*        selectedKeys={skillsFilter}*/}
-{/*        selectionMode="multiple"*/}
-{/*        onSelectionChange={setSkillsFilter as any}*/}
-{/*    >*/}
-{/*        {skills.map((skill) => (*/}
-{/*            <DropdownItem key={skill} className="capitalize">*/}
-{/*                {skill}*/}
-{/*            </DropdownItem>*/}
-{/*        ))}*/}
-{/*    </DropdownMenu>*/}
-{/*</Dropdown>*/}
+{/* Skills filter */
+}
+{/*<Dropdown>*/
+}
+{/*    <DropdownTrigger className="hidden sm:flex">*/
+}
+{/*        <Button endContent={<ChevronDownIcon className="text-small" />} variant="flat">*/
+}
+{/*            Skills*/
+}
+{/*        </Button>*/
+}
+{/*    </DropdownTrigger>*/
+}
+{/*    <DropdownMenu*/
+}
+{/*        disallowEmptySelection*/
+}
+{/*        aria-label="Table Columns"*/
+}
+{/*        closeOnSelect={false} */
+}
+{/*        selectedKeys={skillsFilter}*/
+}
+{/*        selectionMode="multiple"*/
+}
+{/*        onSelectionChange={setSkillsFilter as any}*/
+}
+{/*    >*/
+}
+{/*        {skills.map((skill) => (*/
+}
+{/*            <DropdownItem key={skill} className="capitalize">*/
+}
+{/*                {skill}*/
+}
+{/*            </DropdownItem>*/
+}
+{/*        ))}*/
+}
+{/*    </DropdownMenu>*/
+}
+{/*</Dropdown>*/
+}
