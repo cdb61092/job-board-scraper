@@ -1,14 +1,8 @@
-import { useEffect, useState } from 'react'
-import {
-    Button,
-    Input,
-    SortDescriptor
-} from "@nextui-org/react";
-import type { Filters } from './types';
 import './App.css'
+import { useEffect, useState } from 'react'
+import { SortDescriptor } from "@nextui-org/react";
 import { useJobs } from "./hooks/useJobs";
 import { Skills } from "./components/Skills.tsx";
-
 import { usePagination } from "./hooks/usePagination.tsx";
 import { useFilteredItems } from "./hooks/useFilteredItems.tsx";
 import { useCurrentItems } from "./hooks/useCurrentItems.tsx";
@@ -35,37 +29,14 @@ function App() {
 
     const { onNextPage, onPreviousPage, onRowsPerPageChange } = usePagination({ page, pages, setPage, setRowsPerPage });
 
-    const [filters, setFilters] = useState<Filters>({
-        searchTerm: 'Software Engineer',
-        where: 'Kansas City, MO',
-        remote: {
-            enabled: false,
-            selector: 'button#filter-remotejob',
-        },
-    });
-
     useEffect(() => {
         setListedSkills(Array.from(new Set(jobs.flatMap((job) => job.keywords))).sort());
     }, [jobs])
 
-    const setWhere = (where: string) => setFilters((filters) => ({...filters, where}))
-
     return (
         <>
             <div>
-                <div className='flex gap-3'>
-                    {/* Search term filter */}
-                    <Input label='Job Title' type="text" placeholder="Search term" value={filters.searchTerm}
-                           onChange={(e) => setFilters({...filters, searchTerm: e.target.value})}/>
-
-                    {/* Location filter */}
-                    <Input label='Location' type="text" placeholder="Where" value={filters.where}
-                           onChange={(e) => setWhere(e.target.value)}/>
-                </div>
                 <Skills skillsFilter={skillsFilter} setSkillsFilter={setSkillsFilter} listedSkills={listedSkills} />
-                <Button onClick={() => initiateScraping(filters)}>
-                    Scrape Indeed
-                </Button>
                 <JobsTable
                     jobs={jobs}
                     sortDescriptor={sortDescriptor}
@@ -81,20 +52,6 @@ function App() {
             </div>
         </>
     )
-}
-
-const initiateScraping = (filters: Filters) => {
-    fetch('http://localhost:8080/scrape', {
-        "method": "POST",
-        "headers": {
-            "Content-Type": "application/json"
-        },
-        "body": JSON.stringify({
-            searchTerm: filters.searchTerm,
-            where: filters.where,
-            remote: filters.remote
-        })
-    }).then(() => console.info('Scraping started'));
 }
 
 export default App
