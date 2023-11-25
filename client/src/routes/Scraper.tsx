@@ -2,6 +2,7 @@ import {useState} from "react";
 import {type Filters, RemoteType, ExperienceLevel, DeveloperSkill} from "../types";
 import { DatePosted } from "../types";
 import {Button, Input, Select, SelectItem} from "@nextui-org/react";
+import {Terminal} from "../components/Terminal.tsx";
 
 export const Scraper = () =>  {
     const [filters, setFilters] = useState<Filters>({
@@ -76,6 +77,7 @@ export const Scraper = () =>  {
             <Button onClick={() => initiateScraping(filters)}>
                 Scrape Indeed
             </Button>
+            <Terminal />
         </div>
     )
 }

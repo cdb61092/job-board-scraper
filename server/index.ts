@@ -14,28 +14,28 @@ async function main() {
     const server = http.createServer(app);
     const wss = new WebSocketServer({ server });
 
-    const clients: WebSocket[] = [];
-
     wss.on('connection', (ws) => {
-        clients.push(ws);
         console.log('client connected!');
+
+        setInterval(() => {
+            ws.send('hello')
+        }, 5000)
+
         ws.on('message', (message) => {
             console.log(`received message ${message}`);
         });
 
-        ws.on('close', () => {
-            // Remove the client from the array when the connection is closed
-            const index = clients.indexOf(ws);
-            if (index > -1) {
-                clients.splice(index, 1);
-            }
-        });
     });
 
-    app.post('/scrape', (req, res) => {
+    console.log('hiaas');
+
+
+
+    app.post('/scrape', async (req, res) => {
         console.log('in scrape');
         const filters = req.body;
-        scrapeIndeed(filters);
+        console.log(filters);
+        await scrapeIndeed(filters, wss);
         res.send('scraping initiated');
     });
 
@@ -49,15 +49,18 @@ async function main() {
     server.listen(port, () => console.log(`Server listening on port ${port}`));
 }
 
+
+
 main()
-    .then(async () => {
-        await prisma.$disconnect()
-    })
     .catch(async (e) => {
         console.error(e)
         await prisma.$disconnect()
         process.exit(1)
-    })
+    });
+
+process.on('exit', async () => {
+    await prisma.$disconnect();
+});
 
 
 

@@ -1,7 +1,4 @@
 {
-  "watch": ["./"],
-  "ext": "ts",
-  "exec": "ts-node ./index.ts",
   "execMap": {
     "ts": "ts-node"
   }
